@@ -16,17 +16,13 @@ const subjects = createSubjects({
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // This top section is just for demo purposes. In a real setup another
+    // application would redirect the user to this Worker to be authenticated,
+    // and after signing in or registering the user would be redirected back to
+    // the application they came from. In our demo setup there is no other
+    // application, so this Worker needs to do the initial redirect and handle
+    // the callback redirect on completion.
     const url = new URL(request.url);
-    
-    // Only handle auth-related paths, let other paths fall through to the React app
-    if (!url.pathname.startsWith('/authorize') && 
-        !url.pathname.startsWith('/callback') && 
-        url.pathname !== '/') {
-      // Return null or undefined to let the request fall through to the React app
-      return null;
-    }
-
-    // Handle auth flow
     if (url.pathname === "/") {
       url.searchParams.set("redirect_uri", url.origin + "/callback");
       url.searchParams.set("client_id", "your-client-id");
@@ -40,7 +36,7 @@ export default {
       });
     }
 
-    // The OpenAuth server code
+    // The real OpenAuth server code starts here:
     return issuer({
       storage: CloudflareStorage({
         namespace: env.AUTH_STORAGE,
@@ -73,9 +69,19 @@ export default {
         },
       },
       success: async (ctx, value) => {
-        return ctx.subject("user", {
-          id: await getOrCreateUser(env, value.email),
+        const userId = await getOrCreateUser(env, value.email);
+        const subject = await ctx.subject("user", {
+          id: userId,
         });
+
+        // After successful authentication, redirect to the welcome page
+        if (ctx.searchParams.get("redirect_uri")?.includes("/callback")) {
+          const welcomeUrl = new URL("/welcome", ctx.url);
+          welcomeUrl.searchParams.set("user", userId);
+          return Response.redirect(welcomeUrl.toString());
+        }
+
+        return subject;
       },
     }).fetch(request, env, ctx);
   },
@@ -98,3 +104,53 @@ async function getOrCreateUser(env: Env, email: string): Promise<string> {
   console.log(`Found or created user ${result.id} with email ${email}`);
   return result.id;
 }
+
+// Add handler for the welcome page
+function handleWelcome(request: Request): Response {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get("user");
+  
+  return new Response(
+    `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Welcome</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            text-align: center;
+          }
+          h1 { color: #0051c3; }
+        </style>
+      </head>
+      <body>
+        <h1>Welcome!</h1>
+        <p>You have successfully logged in.</p>
+        <p>Your user ID is: ${userId}</p>
+      </body>
+    </html>
+    `,
+    {
+      headers: {
+        "Content-Type": "text/html",
+      },
+    }
+  );
+}
+
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const url = new URL(request.url);
+
+    // Handle welcome page
+    if (url.pathname === "/welcome") {
+      return handleWelcome(request);
+    }
+
+    // ... rest of the existing fetch handler code ...
+  },
+} satisfies ExportedHandler<Env>;
