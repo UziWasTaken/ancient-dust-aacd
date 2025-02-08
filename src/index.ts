@@ -15,25 +15,44 @@ const subjects = createSubjects({
 });
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    
+    // Handle OAuth callback route specifically
+    if (url.pathname.startsWith('/callback')) {
+      // Process OAuth callback
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      
+      // Return a response that will trigger client-side navigation
+      return new Response(
+        JSON.stringify({
+          message: "OAuth flow complete!",
+          params: { code, state }
+        }), 
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            // Add CORS headers if needed
+            'Access-Control-Allow-Origin': '*'
+          }
+        }
+      );
+    }
+
+    // Handle other routes with your existing logic
     // This top section is just for demo purposes. In a real setup another
     // application would redirect the user to this Worker to be authenticated,
     // and after signing in or registering the user would be redirected back to
     // the application they came from. In our demo setup there is no other
     // application, so this Worker needs to do the initial redirect and handle
     // the callback redirect on completion.
-    const url = new URL(request.url);
     if (url.pathname === "/") {
       url.searchParams.set("redirect_uri", url.origin + "/callback");
       url.searchParams.set("client_id", "your-client-id");
       url.searchParams.set("response_type", "code");
       url.pathname = "/authorize";
       return Response.redirect(url.toString());
-    } else if (url.pathname === "/callback") {
-      return Response.json({
-        message: "OAuth flow complete!",
-        params: Object.fromEntries(url.searchParams.entries()),
-      });
     }
 
     // The real OpenAuth server code starts here:
