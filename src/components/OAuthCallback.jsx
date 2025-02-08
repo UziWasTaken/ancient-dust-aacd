@@ -6,38 +6,23 @@ const OAuthCallback = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        // Parse the callback parameters
-        const params = new URLSearchParams(location.search);
-        const code = params.get('code');
-        const state = params.get('state');
+    // Parse the callback parameters
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const state = params.get('state');
 
-        if (code) {
-          // You might want to store the auth state in your app
-          localStorage.setItem('isAuthenticated', 'true');
-          
-          // Redirect to welcome page
-          navigate('/welcome', { replace: true });
-        }
-      } catch (error) {
-        console.error('Error handling OAuth callback:', error);
-        // Handle error appropriately
-        navigate('/login', { replace: true });
-      }
-    };
-
-    handleCallback();
+    if (code) {
+      // Here you can handle the OAuth code if needed
+      console.log('OAuth code received:', code);
+      
+      // Redirect to welcome page
+      navigate('/welcome');
+    }
   }, [navigate, location]);
 
   return (
-    <div className="callback-container" style={{ 
-      height: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center'
-    }}>
-      <div>Processing login...</div>
+    <div>
+      Processing login...
     </div>
   );
 };

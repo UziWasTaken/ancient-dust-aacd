@@ -1,0 +1,12 @@
+# ... other config ...
+
+[site]
+bucket = "./dist"  # or wherever your built React files are
+entry-point = "src/index.ts"
+
+[build]
+command = "npm run build"  # your build command for React app
+
+# Add this to ensure non-API routes fall through to your React app
+[build.upload]
+format = "service-worker" 
